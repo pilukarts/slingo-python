@@ -1,3 +1,4 @@
+import os
 import random
 import sys
 import pygame
@@ -5,29 +6,42 @@ import pygame
 # Inicializar Pygame
 pygame.init()
 
-# Configuración de la ventana (Diseño vertical tipo slot / móvil)
-ANCHO, ALTO = 480, 720
+# Configuración de la ventana (Formato horizontal o vertical optimizado)
+ANCHO, ALTO = 960, 540  # Formato panorámico ideal para el diseño conceptual
 VENTANA = pygame.display.set_mode((ANCHO, ALTO))
-pygame.display.set_caption("Slingo WonderBelle")
+pygame.display.set_caption("Slingo WonderBelle: Galactic Punk")
 
-# Paleta de colores (Inspirada en tonos vibrantes y artísticos)
-COLOR_FONDO = (30, 25, 45)  # Fondo oscuro elegante
-COLOR_PANEL = (50, 40, 75)  # Contenedores
-COLOR_TEXTO = (255, 255, 255)  # Blanco
-COLOR_ACCENT = (255, 105, 180)  # Tono Rosa / Fucsia WonderBelle
-COLOR_CASILLA = (70, 60, 100)
-COLOR_MARCADA = (46, 204, 113)  # Verde al acertar número
-COLOR_BOTON = (231, 76, 60)  # Botón de Tirar
+# Paleta de colores de respaldo (Neón / Galáctico)
+COLOR_FONDO = (15, 10, 25)
+COLOR_TEXTO = (255, 255, 255)
+COLOR_NEON_ROSA = (255, 0, 127)
+COLOR_NEON_CELESTE = (0, 240, 255)
 
 # Fuentes
-FUENTE_TITULO = pygame.font.SysFont("Arial", 28, bold=True)
-FUENTE_TEXTO = pygame.font.SysFont("Arial", 20, bold=True)
-FUENTE_NUMEROS = pygame.font.SysFont("Arial", 24, bold=True)
+FUENTE_TITULO = pygame.font.SysFont("Arial", 24, bold=True)
+FUENTE_NUMEROS = pygame.font.SysFont("Arial", 22, bold=True)
 
-# Generación del tablero Slingo (Columnas 5x5 con rangos clásicos)
-# Col 1: 1-15, Col 2: 16-30, Col 3: 31-45, Col 4: 46-60, Col 5: 61-75
+# --- CARGA DE RECURSOS (ASSETS) ---
+# Intentará cargar las imágenes de WonderBelle si existen en la carpeta assets/images/
+DIRECTORIO_ASSETS = os.path.join("assets", "images")
 
 
+def cargar_imagen(nombre, ancho, alto):
+  ruta = os.path.join(DIRECTORIO_ASSETS, nombre)
+  if os.path.exists(ruta):
+    img = pygame.image.load(ruta).convert_alpha()
+    return pygame.transform.scale(img, (ancho, alto))
+  return None
+
+
+# Cargar imágenes (si no están creadas todavía, se quedan como None y el juego dibujará formas limpias)
+img_fondo = cargar_imagen("fondo.png", ANCHO, ALTO)
+img_casilla = cargar_imagen("casilla.png", 65, 65)
+img_casilla_hit = cargar_imagen("casilla_hit.png", 65, 65)
+img_boton = cargar_imagen("boton_spin.png", 200, 50)
+
+
+# Generación del tablero Slingo (5x5, números de 1 a 75)
 def generar_tablero():
   tablero = []
   for col in range(5):
@@ -35,37 +49,29 @@ def generar_tablero():
     fin = inicio + 15
     numeros_col = random.sample(range(inicio, fin), 5)
     tablero.append(numeros_col)
-  # Transponer para matriz de 5 filas x 5 columnas
-  matriz = [[tablero[c][r] for c in range(5)] for r in range(5)]
-  return matriz
+  return [[tablero[c][r] for c in range(5)] for r in range(5)]
 
 
 # Estado del juego
 tablero_juego = generar_tablero()
-# Matriz de booleanos para saber qué casillas están marcadas
 marcados = [[False for _ in range(5)] for _ in range(5)]
-
-# Rodillo inferior (5 números actuales)
 rodillo_actual = ["?", "?", "?", "?", "?"]
-tiradas_restantes = 10
+tiradas_restantes = 14
 
 
 def generar_tirada():
   global rodillo_actual, tiradas_restantes
   if tiradas_restantes > 0:
-    # Selecciona 5 números aleatorios únicos del rango 1-75 para simular el rodillo
     rodillo_actual = random.sample(range(1, 76), 5)
     tiradas_restantes -= 1
 
 
-# Bucle principal del juego
+# Bucle principal
 reloj = pygame.time.Clock()
 ejecutando = True
 
 while ejecutando:
-  VENTANA.fill(COLOR_FONDO)
-
-  # --- EVENTOS ---
+  # --- GESTIÓN DE EVENTOS ---
   for evento in pygame.event.get():
     if evento.type == pygame.QUIT:
       ejecutando = False
@@ -73,47 +79,61 @@ while ejecutando:
     elif evento.type == pygame.MOUSEBUTTONDOWN:
       pos_x, pos_y = evento.pos
 
-      # Clic en el botón de Tirar (Spin)
-      if 140 <= pos_x <= 340 and 620 <= pos_y : 680:
+      # Botón SPIN (ubicado a la derecha abajo en el concepto)
+      if 680 <= pos_x <= 880 and 450 <= pos_y <= 500:
         generar_tirada()
 
-      # Clic en la cuadrícula para marcar números si coinciden con el rodillo
-      # Cuadrícula centrada: X de 40 a 440, Y de 120 a 420
-      elif 40 <= pos_x <= 440 and 120 <= pos_y <= 520:
-        col_idx = (pos_x - 40) // 80
-        fila_idx = (pos_y - 120) // 80
+      # Clic en el tablero central (ajustado al centro de la pantalla 960x540)
+      inicio_x_tablero = 310
+      inicio_y_tablero = 80
+      if (
+          inicio_x_tablero <= pos_x <= inicio_x_tablero + (5 * 75)
+          and inicio_y_tablero <= pos_y <= inicio_y_tablero + (5 * 75)
+      ):
+        col_idx = (pos_x - inicio_x_tablero) // 75
+        fila_idx = (pos_y - inicio_y_tablero) // 75
         if 0 <= col_idx < 5 and 0 <= fila_idx < 5:
           num_casilla = tablero_juego[fila_idx][col_idx]
-          # Si el número de la casilla está en el rodillo actual, se marca
           if num_casilla in rodillo_actual:
             marcados[fila_idx][col_idx] = True
 
-  # --- DIBUJO DE INTERFAZ ---
+  # --- RENDERIZADO / DIBUJO ---
+  if img_fondo:
+    VENTANA.blit(img_fondo, (0, 0))
+  else:
+    VENTANA.fill(COLOR_FONDO)  # Fondo oscuro de respaldo si no hay imagen
 
-  # 1. Título del Juego
-  superficie_titulo = FUENTE_TITULO.render("SLINGO WONDERBELLE", True, COLOR_ACCENT)
-  VENTANA.blit(
-      superficie_titulo, (ANCHO // 2 - superficie_titulo.get_width() // 2, 20)
-  )
-
-  # 2. Dibujar Cuadrícula de 5x5
-  tam_celda = 75
-  margen = 8
-  inicio_x = 40
-  inicio_y = 120
+  # 1. Dibujar Cuadrícula de Juego (Centrada)
+  inicio_x_tablero = 310
+  inicio_y_tablero = 80
+  tam_celda = 70
+  espacio = 5
 
   for fila in range(5):
     for col in range(5):
-      x = inicio_x + col * (tam_celda + margen)
-      y = inicio_y + fila * (tam_celda + margen)
+      x = inicio_x_tablero + col * (tam_celda + espacio)
+      y = inicio_y_tablero + fila * (tam_celda + espacio)
 
-      # Color de la celda según si está marcada o no
-      color_actual = COLOR_MARCADA if marcados[fila][col] else COLOR_CASILLA
-      pygame.draw.rect(
-          VENTANA, color_actual, (x, y, tam_celda, tam_celda), border_radius=8
-      )
+      # Dibujar casilla según estado
+      if marcados[fila][col]:
+        if img_casilla_hit:
+          VENTANA.blit(img_casilla_hit, (x, y))
+        else:
+          pygame.draw.rect(
+              VENTANA, COLOR_NEON_ROSA, (x, y, tam_celda, tam_celda), border_radius=6
+          )
+      else:
+        if img_casilla:
+          VENTANA.blit(img_casilla, (x, y))
+        else:
+          pygame.draw.rect(
+              VENTANA, (40, 30, 60), (x, y, tam_celda, tam_celda), border_radius=6
+          )
+          pygame.draw.rect(
+              VENTANA, COLOR_NEON_CELESTE, (x, y, tam_celda, tam_celda), 1, border_radius=6
+          )
 
-      # Número de la casilla
+      # Texto del número
       num_texto = str(tablero_juego[fila][col])
       superficie_num = FUENTE_NUMEROS.render(num_texto, True, COLOR_TEXTO)
       VENTANA.blit(
@@ -124,22 +144,23 @@ while ejecutando:
           ),
       )
 
-  # 3. Rodillo inferior (Slots)
-  slot_y = 540
-  slot_ancho = 80
-  slot_alto = 60
-  slot_inicio_x = 40
-  slot_margen = 10
+  # 2. Rodillo Inferior (Slots de números)
+  slot_inicio_x = 310
+  slot_y = 460
+  slot_ancho = 65
+  slot_alto = 50
+  slot_espacio = 10
 
   for i, num in enumerate(rodillo_actual):
-    sx = slot_inicio_x + i * (slot_ancho + slot_margen)
+    sx = slot_inicio_x + i * (slot_ancho + slot_espacio)
     pygame.draw.rect(
-        VENTANA,
-        COLOR_PANEL,
-        (sx, slot_y, slot_ancho, slot_alto),
-        border_radius=6,
+        VENTANA, (25, 20, 45), (sx, slot_y, slot_ancho, slot_alto), border_radius=8
     )
-    s_texto = FUENTE_NUMEROS.render(str(num), True, COLOR_ACCENT)
+    pygame.draw.rect(
+        VENTANA, COLOR_NEON_CELESTE, (sx, slot_y, slot_ancho, slot_alto), 2, border_radius=8
+    )
+
+    s_texto = FUENTE_NUMEROS.render(str(num), True, COLOR_NEON_CELESTE)
     VENTANA.blit(
         s_texto,
         (
@@ -148,24 +169,21 @@ while ejecutando:
         ),
     )
 
-  # 4. Panel de Tiradas Restantes y Botón
-  info_tiradas = FUENTE_TEXTO.render(
-      f"Tiradas: {tiradas_restantes}", True, COLOR_TEXTO
-  )
-  VENTANA.blit(info_tiradas, (40, 630))
+  # 3. Panel Lateral / Inferior (Tiradas y Botón Spin)
+  fuente_panel = pygame.font.SysFont("Arial", 18, bold=True)
+  texto_tiradas = fuente_panel(f"SPINS LEFT: {tiradas_restantes}", True, COLOR_NEON_CELESTE)
+  VENTANA.blit(texto_tiradas, (70, 475))
 
-  # Botón de Tirar
-  pygame.draw.rect(
-      VENTANA, COLOR_BOTON, (260, 620, 180, 50), border_radius=10
-  )
-  txt_boton = FUENTE_TEXTO.render("¡GIRAR!", True, COLOR_TEXTO)
-  VENTANA.blit(
-      txt_boton,
-      (
-          260 + (180 // 2 - txt_boton.get_width() // 2),
-          620 + (50 // 2 - txt_boton.get_height() // 2),
-      ),
-  )
+  # Botón de Girar
+  bx, by = 680, 455
+  if img_boton:
+    VENTANA.blit(img_boton, (bx, by))
+  else:
+    pygame.draw.rect(
+        VENTANA, COLOR_NEON_ROSA, (bx, by, 200, 45), border_radius=10
+    )
+    txt_b = fuente_panel("SPIN! (GALACTIC)", True, COLOR_TEXTO)
+    VENTANA.blit(txt_b, (bx + (200 // 2 - txt_b.get_width() // 2), by + 12))
 
   pygame.display.flip()
   reloj.tick(30)
